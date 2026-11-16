@@ -239,6 +239,8 @@ local function fallbackChoices(query)
     return choices
 end
 
+local dictionaryAppPath = "/System/Applications/Dictionary.app"
+
 local function lookupDefinition(term, isCurrent, callback)
     local task
     task = hs.task.new(hs.configdir .. "/launcher-define", function(code, output)
@@ -256,7 +258,7 @@ end
 
 local function definitionChoice(term, definition)
     return {
-        title = term, subtitle = definition, icon = dictionaryIcon,
+        title = term, subtitle = definition, launchAppPath = dictionaryAppPath,
         action = "dictionary", term = term, resultID = -100,
     }
 end
@@ -577,7 +579,7 @@ local function search(session, request, query, reset)
         or query:match("^[Dd][Ii][Cc][Tt]%s+(.+)$")
     if dictionaryTerm and #dictionaryTerm <= 200 then
         sendRows(session, {{
-            title = "Looking up ‘" .. dictionaryTerm .. "’…", icon = dictionaryIcon, valid = false,
+            title = "Looking up ‘" .. dictionaryTerm .. "’…", launchAppPath = dictionaryAppPath, valid = false,
         }}, placeholder, reset and session.root.query or nil)
         lookupDefinition(dictionaryTerm, isCurrent, function(definition)
             session.dictionaryChoice = definitionChoice(dictionaryTerm, definition or "Open in Dictionary")
