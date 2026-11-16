@@ -2,11 +2,15 @@
 
 A macOS launcher for Hammerspoon with app and file search, clipboard history, and system shortcuts.
 
-| Dark mode | Light mode |
-| --- | --- |
-| [![Watch the dark mode Liquid Glass demo](demos/slider-dark.jpg)](demos/glasslauncher-slider-dark.mp4) | [![Watch the light mode Liquid Glass demo](demos/slider-light.jpg)](demos/glasslauncher-slider-light.mp4) |
+### Dark mode
 
-Click either preview to open its 22-second MP4. [Background footage](https://youtu.be/sEH3pOhj0xs?t=250)
+https://github.com/user-attachments/assets/d9e80d5c-7342-40ad-80f5-38b6a24c958c
+
+### Light mode
+
+https://github.com/user-attachments/assets/3c282375-8b53-4cfb-92ad-29b69b39546c
+
+[Background footage](https://youtu.be/sEH3pOhj0xs?t=250)
 
 ## Install
 
