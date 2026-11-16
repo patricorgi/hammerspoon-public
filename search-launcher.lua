@@ -826,7 +826,14 @@ local function search(session, request, query, reset)
         end
 
         if #pathTerms > 1 then
-            findFiles(nil)
+            for _, path in ipairs(fileSearchScope.matchPaths(pathTerms, function(path)
+                return not seen[path] and fileSearchScope.searchablePath(path)
+            end, fileLimit)) do
+                seen[path] = true
+                files[#files + 1] = choiceFor(path, path:match("%.app$"))
+            end
+            if #files > 0 then renderMatches() end
+            if #files < fileLimit then findFiles(nil) end
         else
             findFiles(escaped .. '*', function()
                 findFiles('*' .. escaped .. '*')
@@ -1361,4 +1368,9 @@ local launcherHotkey = hs.eventtap.new({ events.types.keyDown }, function(event)
     return false
 end):start()
 
-return { prewarm = ensureResident, launcherHotkey = launcherHotkey, showFileActions = showFileActions, textActionHotkey = textActionHotkey, clipboardHotkey = clipboardHotkey }
+local function prewarm()
+    ensureResident()
+    hs.timer.doAfter(0.15, fileSearchScope.warmPathIndex)
+end
+
+return { prewarm = prewarm, launcherHotkey = launcherHotkey, showFileActions = showFileActions, textActionHotkey = textActionHotkey, clipboardHotkey = clipboardHotkey }

@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 import DiskArbitration
 import SwiftUI
 import QuickLookUI
@@ -1650,8 +1651,38 @@ private enum Main {
         try FileHandle.standardOutput.write(contentsOf: JSONEncoder().encode(volumes))
     }
 
+    private static func encodeClipboardImage(to path: String) -> Bool {
+        let data = FileHandle.standardInput.readDataToEndOfFile()
+        guard data.count <= 96 * 1024 * 1024,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let attributes = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = attributes[kCGImagePropertyPixelWidth] as? Int,
+              let height = attributes[kCGImagePropertyPixelHeight] as? Int,
+              width > 0, height > 0, width <= 16_000_000 / height else { return false }
+
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: max(width, height),
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return false }
+        let png = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(png, "public.png" as CFString, 1, nil) else { return false }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination), png.length <= 16 * 1024 * 1024 else { return false }
+        do {
+            try (png as Data).write(to: URL(fileURLWithPath: path), options: .atomic)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     @MainActor static func main() {
         let args = CommandLine.arguments
+        if args.count == 3, args[1] == "--encode-clipboard-image" {
+            exit(encodeClipboardImage(to: args[2]) ? 0 : 1)
+        }
         if args.count == 2, args[1] == "--storage-volumes" {
             do { try reportStorage() } catch { exit(1) }
             return

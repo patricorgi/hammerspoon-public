@@ -46,4 +46,58 @@ function scope.spotlightArguments(predicate, includeFolders)
     return args
 end
 
+local index, refreshTask, refreshedAt
+local refreshInterval = 30
+
+function scope.warmPathIndex()
+    if refreshTask or (refreshedAt and hs.timer.absoluteTime() - refreshedAt < refreshInterval * 1e9) then return end
+    local args = scope.spotlightArguments(nil, true)
+    if not args then return end
+    local task
+    local nextIndex, seen, remainder = {}, {}, ""
+    local function collect(output)
+        if not output or output == "" then return end
+        local data = remainder .. output
+        local offset = 1
+        while true do
+            local stop = data:find("%z", offset)
+            if not stop then break end
+            local path = data:sub(offset, stop - 1)
+            if path:sub(1, 1) == "/" and not seen[path] and searchablePath(path) then
+                nextIndex[#nextIndex + 1] = { path = path, lower = path:lower() }
+                seen[path] = true
+            end
+            offset = stop + 1
+        end
+        remainder = data:sub(offset)
+    end
+    task = hs.task.new("/usr/bin/mdfind", function(code, output)
+        if refreshTask ~= task then return end
+        if #nextIndex == 0 then collect(output) end
+        refreshedAt = hs.timer.absoluteTime()
+        if code == 0 then index = nextIndex end
+        refreshTask = nil
+    end, function(_, output)
+        collect(output)
+        return true
+    end, args)
+    if task and task:start() then refreshTask = task end
+end
+
+function scope.matchPaths(terms, accept, limit)
+    scope.warmPathIndex()
+    local matches = {}
+    for _, entry in ipairs(index or {}) do
+        local found = true
+        for _, term in ipairs(terms) do
+            if not entry.lower:find(term, 1, true) then found = false; break end
+        end
+        if found and accept(entry.path) and hs.fs.attributes(entry.path, "mode") then
+            matches[#matches + 1] = entry.path
+            if #matches >= limit then break end
+        end
+    end
+    return matches
+end
+
 return scope

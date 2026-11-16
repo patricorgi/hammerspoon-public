@@ -6,7 +6,11 @@ local clearedChangeCount = snapshot and snapshot.clearedChangeCount
 local observedChangeCount = snapshot and snapshot.observedChangeCount
 local maxEntries = 60
 local maxImages = 12
-local maxImageBytes = 16 * 1024 * 1024
+local maxImageInputBytes = 96 * 1024 * 1024
+local imageTypes = { "public.png", "public.tiff", "public.jpeg", "com.compuserve.gif", "com.apple.icns" }
+local helper = hs.configdir .. "/GlassLauncher.app/Contents/MacOS/GlassLauncher"
+local pendingImages = {}
+local saveTimer
 local excludedTypes = {
     ["org.nspasteboard.ConcealedType"] = true,
     ["org.nspasteboard.TransientType"] = true,
@@ -60,8 +64,50 @@ end
 local capturePaused = false
 
 local function save()
-    if not state.save(entries, observedChangeCount, clearedChangeCount) then
+    if saveTimer then saveTimer:stop(); saveTimer = nil end
+    local ready = {}
+    for _, entry in ipairs(entries) do
+        if not pendingImages[entry] then ready[#ready + 1] = entry end
+    end
+    if not state.save(ready, observedChangeCount, clearedChangeCount) then
         hs.printf("GlassLauncher could not save clipboard history")
+    end
+end
+
+local function scheduleSave()
+    if not saveTimer then saveTimer = hs.timer.doAfter(0.4, save) end
+end
+
+local function finishImage(entry)
+    local job = pendingImages[entry]
+    if not job then return end
+    pendingImages[entry] = nil
+    local found
+    for index, row in ipairs(entries) do
+        if row == entry then found = index; break end
+    end
+    local file = found and io.open(job.path, "rb")
+    local header = file and file:read(24)
+    if file then file:close() end
+    if found and header and #header == 24 and header:sub(1, 8) == "\137PNG\r\n\26\n" then
+        local width, height = string.unpack(">I4I4", header, 17)
+        entry.text = string.format("Image: %d × %d", width, height)
+        entry.previewImage = job.path
+        scheduleSave()
+    else
+        if found then table.remove(entries, found) end
+        os.remove(job.path)
+    end
+end
+
+local function flushImages()
+    local jobs = {}
+    for entry, job in pairs(pendingImages) do
+        jobs[#jobs + 1] = { entry, job.task }
+    end
+    for _, item in ipairs(jobs) do
+        item[2]:waitUntilExit()
+        finishImage(item[1])
     end
 end
 
@@ -81,21 +127,20 @@ local function capture(text)
 
     if type(text) ~= "string" and types["public.url"] then text = hs.pasteboard.readURL() end
     local entry, cleaned
-    if types["public.png"] or types["public.tiff"] or types["public.jpeg"]
-        or types["com.compuserve.gif"] or types["com.apple.icns"] then
-        local image = hs.pasteboard.readImage()
-        if not image then return end
-        local size = image:size()
-        if size.w * size.h > 16000000 then return end
+    local imageType
+    for _, kind in ipairs(imageTypes) do
+        if types[kind] then imageType = kind; break end
+    end
+    if imageType then
+        local data = hs.pasteboard.readDataForUTI(imageType)
+        if not data or #data > maxImageInputBytes or hs.pasteboard.changeCount() ~= changeCount then return end
         local path = state.imagePath()
         if not path then return end
-        if not image:saveToFile(path, true, "PNG") then os.remove(path); return end
-        local bytes = hs.fs.attributes(path, "size")
-        if not bytes or bytes > maxImageBytes then os.remove(path); return end
-        entry = {
-            text = string.format("Image: %d × %d", math.floor(size.w), math.floor(size.h)),
-            symbol = "photo", previewImage = path,
-        }
+        entry = { symbol = "photo" }
+        local task = hs.task.new(helper, function() finishImage(entry) end,
+            { "--encode-clipboard-image", path })
+        if not task or not task:setInput(data):start() then os.remove(path); return end
+        pendingImages[entry] = { task = task, path = path }
     elseif type(text) == "string" and #text <= 65536 and text:find("%S") then
         local cleanedURL = cleanURL(text)
         if cleanedURL then
@@ -115,18 +160,20 @@ local function capture(text)
     end
     local images = 0
     for i = 1, #entries do
-        if entries[i].previewImage then
+        if entries[i].previewImage or pendingImages[entries[i]] then
             images = images + 1
             if images > maxImages then remove(i); break end
         end
     end
     while #entries > maxEntries do remove(#entries) end
-    save()
+    scheduleSave()
 end
 
 function history.rows()
     local rows = {}
-    for index, entry in ipairs(entries) do rows[index] = entry end
+    for _, entry in ipairs(entries) do
+        if not pendingImages[entry] then rows[#rows + 1] = entry end
+    end
     return rows
 end
 
@@ -189,6 +236,7 @@ capture(hs.pasteboard.getContents())
 
 local previousShutdown = hs.shutdownCallback
 hs.shutdownCallback = function()
+    flushImages()
     save()
     if previousShutdown then previousShutdown() end
 end
