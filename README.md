@@ -4,11 +4,11 @@ A macOS launcher for Hammerspoon with app and file search, clipboard history, an
 
 ### Dark mode
 
-https://github.com/user-attachments/assets/d9e80d5c-7342-40ad-80f5-38b6a24c958c
+https://github.com/user-attachments/assets/c0476f14-77ea-4224-86c1-08fa7e96b0d1
 
 ### Light mode
 
-https://github.com/user-attachments/assets/3c282375-8b53-4cfb-92ad-29b69b39546c
+https://github.com/user-attachments/assets/6937958c-8af0-43ee-a063-3a2a78b63161
 
 [Background footage](https://youtu.be/sEH3pOhj0xs?t=250)
 
