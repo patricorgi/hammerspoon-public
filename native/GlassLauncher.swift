@@ -1114,8 +1114,7 @@ private final class Launcher: NSObject, NSApplicationDelegate, NSWindowDelegate,
         panel.title = "Main Chooser"
         panel.delegate = self
         panel.isOpaque = false
-        // A fully transparent window pixel can pass mouse events to the app behind it.
-        panel.backgroundColor = NSColor.black.withAlphaComponent(0.01)
+        panel.backgroundColor = .clear
         panel.ignoresMouseEvents = false
         panel.hasShadow = true
         panel.acceptsMouseMovedEvents = true
@@ -1124,6 +1123,11 @@ private final class Launcher: NSObject, NSApplicationDelegate, NSWindowDelegate,
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
 
         let content = SearchPanelContent(frame: NSRect(origin: .zero, size: rect.size))
+        // Clip the native backdrop as well as the SwiftUI content during the first layout.
+        content.wantsLayer = true
+        content.layer?.cornerRadius = panelCornerRadius
+        content.layer?.cornerCurve = .continuous
+        content.layer?.masksToBounds = true
         let hosting = NSHostingView(rootView: view.frame(maxHeight: .infinity, alignment: .top))
         hosting.sizingOptions = []
         hosting.frame = content.bounds
