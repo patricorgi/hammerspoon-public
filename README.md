@@ -2,6 +2,12 @@
 
 A macOS launcher for Hammerspoon with app and file search, clipboard history, and system shortcuts.
 
+| Dark mode | Light mode |
+| --- | --- |
+| [![Watch the dark mode Liquid Glass demo](demos/slider-dark.jpg)](demos/glasslauncher-slider-dark.mp4) | [![Watch the light mode Liquid Glass demo](demos/slider-light.jpg)](demos/glasslauncher-slider-light.mp4) |
+
+Click either preview to open its 22-second MP4. [Background footage](https://youtu.be/sEH3pOhj0xs?t=250)
+
 ## Install
 
 Requires macOS 26+, Hammerspoon, and Xcode or Command Line Tools with the macOS 26 SDK.
