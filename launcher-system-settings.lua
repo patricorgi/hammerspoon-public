@@ -7,7 +7,7 @@ local panes = {
     { "VPN", "虚拟专用网络", "com.apple.NetworkExtensionSettingsUI.NESettingsUIExtension", "lock.shield" },
     { "AirDrop & Handoff", "隔空投送 接力 airdrop handoff", "com.apple.AirDrop-Handoff-Settings.extension", "dot.radiowaves.left.and.right" },
     { "General", "通用", "com.apple.systempreferences.GeneralSettings", "gearshape" },
-    { "About", "关于本机 关于这台 Mac 设备信息", "com.apple.SystemProfiler.AboutExtension", "info.circle" },
+    { "About", "关于本机 关于这台 Mac 设备信息", "com.apple.SystemProfiler.AboutExtension", "laptopcomputer" },
     { "Software Update", "软件更新 系统更新 更新 update", "com.apple.Software-Update-Settings.extension", "arrow.clockwise" },
     { "Storage", "储存空间 存储空间 磁盘 disk", "com.apple.settings.Storage", "internaldrive" },
     { "Appearance", "外观 深色模式 dark mode", "com.apple.Appearance-Settings.extension", "circle.lefthalf.filled" },
@@ -51,6 +51,18 @@ local panes = {
     { "Game Controllers", "游戏手柄 游戏控制器 controller", "com.apple.Game-Controller-Settings.extension", "gamecontroller.fill" },
 }
 
+local iconColors = {
+    ["Wi-Fi"] = 0x167AEB, Bluetooth = 0x167AEB, Network = 0x3866D6, VPN = 0x3488B9,
+    ["AirDrop & Handoff"] = 0x008CCB, Displays = 0x1688D8, Wallpaper = 0x2F9DCA,
+    ["Screen Saver"] = 0x4265C4, Sound = 0xD84256, Battery = 0x289746,
+    Notifications = 0xD84256, Focus = 0x6954C7, ["Privacy & Security"] = 0x1C79D2,
+    Accessibility = 0x167AEB, ["Screen Time"] = 0x6954C7, ["Touch ID & Password"] = 0xD84256,
+    ["AutoFill & Passwords"] = 0x7056BA, iCloud = 0x128FD1, ["Internet Accounts"] = 0x167AEB,
+    Family = 0x5153BA, ["Users & Groups"] = 0x347CC7, ["Language & Region"] = 0x3178C8,
+    Spotlight = 0x367BDD, ["Time Machine"] = 0x1E947F, ["Apple Intelligence & Siri"] = 0x8454BC,
+    ["Game Center"] = 0xD6567A, ["Game Controllers"] = 0x4A67AD,
+}
+
 local function normalize(text)
     return (text:lower():gsub("[&%-]", " "):gsub("%s+", " "):match("^%s*(.-)%s*$"))
 end
@@ -83,7 +95,7 @@ function settings.results(text, limit)
         local pane = matches[i].pane
         local chinese = pane[2]:match("^%S+")
         rows[i] = { title = pane[1], subtitle = "System Settings · " .. chinese,
-                    symbol = pane[4],
+                    symbol = pane[4], symbolTile = iconColors[pane[1]] or 0x777A83,
                     url = "x-apple.systempreferences:" .. pane[3] }
     end
     return rows

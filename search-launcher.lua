@@ -106,7 +106,7 @@ local function sendRows(session, choices, placeholder, resetQuery, context, clip
             recordingStatus = choice.recordingStatus, storageUsed = choice.storageUsed,
             path = choice.path, appIconPath = choice.launchAppPath, hasAlternate = choice.alternateURL ~= nil, status = choice.statusKind, swatch = choice.swatch,
             canShuffle = choice.shuffle ~= nil, artworkKey = choice.artworkKey, previewText = choice.previewText, previewImage = choice.previewImage, isDirectory = choice.isDirectory,
-            icon = choice.icon, symbol = choice.symbol, valid = choice.valid,
+            icon = choice.icon, symbol = choice.symbol, symbolTile = choice.symbolTile, valid = choice.valid,
         }
     end
     local visibleHistory

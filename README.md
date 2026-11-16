@@ -1,4 +1,4 @@
-# GlassLauncher
+# Hammerspoon Launcher with Liquid Glass
 
 A macOS launcher for Hammerspoon with app and file search, clipboard history, and system shortcuts.
 
@@ -13,7 +13,7 @@ Requires macOS 26+, Hammerspoon, and Xcode or Command Line Tools with the macOS 
    cd hammerspoon-public
    ./build.sh
    ```
-2. Copy the Lua files, `GlassLauncher.app`, and `launcher-define` to `~/.hammerspoon/`. If you already use Hammerspoon, back up your config and merge `init.lua`.
+2. Copy the Lua files, the `fallback-icons/` directory, `GlassLauncher.app`, and `launcher-define` to `~/.hammerspoon/`. If you already use Hammerspoon, back up your config and merge `init.lua`.
 3. Grant Hammerspoon Accessibility access and reload its config. Reassign Spotlight’s shortcut if it conflicts with `⌘Space`.
 
 ## Use

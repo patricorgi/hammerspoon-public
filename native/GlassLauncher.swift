@@ -26,6 +26,7 @@ private struct SearchResult: Decodable {
     let status: String?
     let icon: String?
     let symbol: String?
+    let symbolTile: UInt32?
     let swatch: UInt32?
     let previewText: String?
     let previewImage: String?
@@ -864,6 +865,24 @@ private struct LauncherView: View {
                             }
                     }
                     .foregroundStyle(.primary)
+                } else if let symbol = result.symbol, let tile = result.symbolTile {
+                    let base = Color(red: Double((tile >> 16) & 255) / 255,
+                                     green: Double((tile >> 8) & 255) / 255,
+                                     blue: Double(tile & 255) / 255)
+                    let size = iconSize * 0.83
+                    let shape = RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
+                    Image(systemName: symbol)
+                        .font(.system(size: size * 0.55, weight: .semibold))
+                        .symbolRenderingMode(.monochrome)
+                        .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.18), radius: 0.6, y: 1)
+                        .frame(width: size, height: size)
+                        .background {
+                            shape.fill(base.gradient)
+                        }
+                        .overlay {
+                            shape.strokeBorder(.white.opacity(0.18), lineWidth: 0.5)
+                        }
                 } else if let symbol = result.symbol {
                     Image(systemName: symbol).font(.system(size: model.splitResults ? 15 : 25))
                 } else if let path = result.appIconPath ?? result.path {
