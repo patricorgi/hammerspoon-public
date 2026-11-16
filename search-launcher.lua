@@ -54,10 +54,6 @@ end
 local appearanceKey = "glassLauncherPublicLightMode"
 local lightMode = hs.settings.get(appearanceKey) == true
 
-local recordingKey = "glassLauncherPublicRecordingMode"
-local recordingMode = hs.settings.get(recordingKey) == true
-local recordingPlaceholder = "Recording Mode · Apps and System Settings"
-
 local queryHistoryLimit = 20
 local queryHistory = {}
 
@@ -74,7 +70,6 @@ local function webAddress(query)
 end
 
 local function rememberQuery(session)
-    if session.recordingUsed then return end
     local query = session.root.query:match("^%s*(.-)%s*$")
     if query == "" or #query > 512 then return end
     for index, previous in ipairs(queryHistory) do
@@ -85,7 +80,6 @@ local function rememberQuery(session)
 end
 
 local function searchIcon()
-    if recordingMode then return "record.circle" end
     return "magnifyingglass"
 end
 
@@ -103,14 +97,14 @@ local function sendRows(session, choices, placeholder, resetQuery, context, clip
         rows[index] = {
             id = id, title = choice.title or choice.text,
             subtitle = choice.subtitle or choice.statusText or choice.subText or "",
-            recordingStatus = choice.recordingStatus, storageUsed = choice.storageUsed,
+            storageUsed = choice.storageUsed,
             path = choice.path, appIconPath = choice.launchAppPath, hasAlternate = choice.alternateURL ~= nil, status = choice.statusKind, swatch = choice.swatch,
             canShuffle = choice.shuffle ~= nil, artworkKey = choice.artworkKey, previewText = choice.previewText, previewImage = choice.previewImage, isDirectory = choice.isDirectory,
             icon = choice.icon, symbol = choice.symbol, symbolTile = choice.symbolTile, valid = choice.valid,
         }
     end
     local visibleHistory
-    if not recordingMode and session.view == session.root and #queryHistory > 0 then
+    if session.view == session.root and #queryHistory > 0 then
         visibleHistory = {}
         for _, entry in ipairs(queryHistory) do
             if not webAddress(entry.query) then
@@ -394,30 +388,6 @@ local function browse(session, query, reset)
     sendRows(session, rows, "Browse files and folders", displayed, nil, nil, inputPrefix, message)
 end
 
-local function searchWhileRecording(session, query, lower)
-    if query == "" then
-        return { { title = "Recording Mode is on", subtitle = "Type .recording to turn it off",
-            symbol = "record.circle", valid = false } }
-    end
-    local settingsQuery = lower:match("^settings%s+(.+)$")
-        or lower:match("^system settings%s+(.+)$") or query:match("^系统设置%s+(.+)$")
-    local settingsOnly = settingsQuery or lower == "settings" or lower == "system settings" or query == "系统设置"
-    local limit = not settingsOnly and 3 or nil
-    local rows = systemSettings.results(settingsOnly and (settingsQuery or "") or query, limit)
-    for _, row in ipairs(rows) do row.subtitle = "System Settings" end
-    if not settingsOnly and #rows < resultLimit then
-        session.apps = session.apps or scanApps()
-        for _, app in ipairs(session.apps) do
-            if app.path:sub(1, #home + 1) ~= home .. "/" and
-                (app.title:lower():find(lower, 1, true)) then
-                rows[#rows + 1] = { title = app.title, subtitle = "Application", launchAppPath = app.path }
-                if #rows == resultLimit then break end
-            end
-        end
-    end
-    return rows
-end
-
 local function storageSize(bytes)
     local amount = bytes
     for _, unit in ipairs({ "B", "KB", "MB", "GB", "TB" }) do
@@ -437,12 +407,12 @@ local function search(session, request, query, reset)
     local systemAction = systemActions.result(lower)
     if systemAction then
         session.browserDirectory, session.browserRows = nil, nil
-        sendRows(session, { systemAction }, recordingMode and recordingPlaceholder or session.root.title,
+        sendRows(session, { systemAction }, session.root.title,
             reset and query or nil)
         return
     end
     local eject = lower == "eject"
-    if not recordingMode and (eject or lower == "storage" or lower == "存储空间") then
+    if eject or lower == "storage" or lower == "存储空间" then
         session.browserDirectory, session.browserRows = nil, nil
         local storageSettings = not eject and systemSettings.results("storage", 1)[1] or nil
         local function render(rows)
@@ -499,7 +469,7 @@ local function search(session, request, query, reset)
             subtitle = enabled and "Keep Awake is on" or "Prevent idle sleep and the screen saver",
             statusKind = enabled and "caffeineOn" or "caffeineOff",
             action = "toggleCaffeine",
-        }}, recordingMode and recordingPlaceholder or session.root.title, reset and query or nil)
+        }}, session.root.title, reset and query or nil)
         return
     end
     local reloadTitle = "Reload Hammerspoon Configuration"
@@ -509,22 +479,7 @@ local function search(session, request, query, reset)
         sendRows(session, {{
             title = reloadTitle,
             symbol = "arrow.clockwise", action = "reloadHammerspoon",
-        }}, recordingMode and recordingPlaceholder or session.root.title, reset and query or nil)
-        return
-    end
-    if lower == ".recording" or lower == "recording mode" or lower == "录制模式" then
-        session.browserDirectory, session.browserRows = nil, nil
-        sendRows(session, {{
-            title = recordingMode and "Turn Off Recording Mode" or "Turn On Recording Mode",
-            subtitle = "Private results hidden · Separate clipboard history",
-            symbol = "record.circle", action = "toggleRecording",
-        }}, recordingMode and recordingPlaceholder or session.root.title, reset and query or nil)
-        return
-    end
-    if recordingMode then
-        session.recordingUsed = true
-        session.browserDirectory, session.browserRows = nil, nil
-        sendRows(session, searchWhileRecording(session, term, lower), recordingPlaceholder, reset and query or nil)
+        }}, session.root.title, reset and query or nil)
         return
     end
     if query:sub(1, 1) == "~" or query:sub(1, 1) == "/" then
@@ -997,7 +952,7 @@ local function handleEvent(session, line, event)
         else
             choice = session.choices[event.choice]
         end
-        if not choice or choice.valid == false or (recordingMode and event.fileAction) then return end
+        if not choice or choice.valid == false then return end
         if view == session.root and session.browserDirectory and choice.path and (
             event.fileAction == "completePath" or (choice.isDirectory and
                 (not event.fileAction or event.fileAction == "browse" or event.fileAction == "enterFolder"))
@@ -1021,12 +976,6 @@ local function handleEvent(session, line, event)
             if view:isCurrent() then renderView(view) end
         elseif choice.launchAppPath then
             view:finish(function() openPath(choice.launchAppPath) end)
-        elseif choice.action == "toggleRecording" then
-            recordingMode = not recordingMode
-            session.recordingUsed = true
-            clipboard.setRecording(recordingMode)
-            hs.settings.set(recordingKey, recordingMode)
-            search(session, session.request, "", true)
         elseif choice.action == "ejectVolume" then
             view:finish(function()
                 local task = hs.task.new("/usr/sbin/diskutil", function(code)
@@ -1169,21 +1118,20 @@ hs.shutdownCallback = function()
     if previousShutdown then previousShutdown() end
 end
 
-local function launch(start, arguments, pending, allowRecordingClipboard)
+local function launch(start, arguments, pending, clipboardLaunch)
     if startupInput and startupInput ~= pending then
         startupInput.timer:stop()
         startupInput = nil
     end
-    if recordingMode and start and not allowRecordingClipboard then start, arguments = nil, nil end
     closeActive()
-    local session = { buffer = "", request = 0, choices = {}, recordingUsed = recordingMode }
+    local session = { buffer = "", request = 0, choices = {} }
     session.root = setmetatable({
         session = session, title = "Search apps, files, and folders", query = "", rows = {},
     }, View)
     session.view = session.root
     local buffered = pending
     if buffered then buffered.session = session end
-    if buffered or allowRecordingClipboard then
+    if buffered or clipboardLaunch then
         local task = ensureResident()
         if task then
             residentRequestBase = residentRequestBase + 1000000
@@ -1305,7 +1253,6 @@ local function copySelection(app, callback)
 end
 
 local function showSelectionActions()
-    if recordingMode then launch(); return end
     local app = hs.application.frontmostApplication()
     if app and app:bundleID() == "com.apple.finder" then
         local ok, url = hs.osascript.applescript([[
@@ -1327,7 +1274,6 @@ local function showSelectionActions()
     local element = app and hs.axuielement.applicationElement(app):attributeValue("AXFocusedUIElement")
     local text = element and element:attributeValue("AXSelectedText")
     local function show(selected)
-        if recordingMode then return end
         if type(selected) ~= "string" or not selected:find("%S") then
             hs.alert.show("Select text or a Finder item first")
             return
@@ -1336,7 +1282,6 @@ local function showSelectionActions()
     end
     if (type(text) ~= "string" or not text:find("%S")) and app then
         copySelection(app, function(selection)
-            if recordingMode then return end
             if selection and type(selection.path) == "string" and selection.path ~= "" then
                 showFileActions(selection.path)
             else
@@ -1352,7 +1297,7 @@ local clipboardHotkey = hs.hotkey.bind({ "cmd", "shift" }, "v", function()
     local target = active and active.clipboardTarget or hs.application.frontmostApplication()
     launch(function(root)
         root.session.clipboardTarget = target
-        local title = recordingMode and "Recording Clipboard" or "Search clipboard history"
+        local title = "Search clipboard history"
         root:push(title, "", function(view, choice, event)
             view:finish(function()
                 if event.copyOnly == true then
@@ -1414,4 +1359,4 @@ local launcherHotkey = hs.eventtap.new({ events.types.keyDown }, function(event)
     return false
 end):start()
 
-return { prewarm = ensureResident, isRecording = function() return recordingMode end, launcherHotkey = launcherHotkey, showFileActions = showFileActions, textActionHotkey = textActionHotkey, clipboardHotkey = clipboardHotkey }
+return { prewarm = ensureResident, launcherHotkey = launcherHotkey, showFileActions = showFileActions, textActionHotkey = textActionHotkey, clipboardHotkey = clipboardHotkey }

@@ -4,7 +4,6 @@ local snapshot = state.load()
 local entries = snapshot and snapshot.entries or {}
 local clearedChangeCount = snapshot and snapshot.clearedChangeCount
 local observedChangeCount = snapshot and snapshot.observedChangeCount
-local personalEntries
 local maxEntries = 60
 local maxImages = 12
 local maxImageBytes = 16 * 1024 * 1024
@@ -17,7 +16,7 @@ local excludedTypes = {
 local function remove(index)
     local entry = table.remove(entries, index)
     if entry.previewImage then
-        if personalEntries then os.remove(entry.previewImage) else state.removeImage(entry.previewImage) end
+        state.removeImage(entry.previewImage)
     end
 end
 
@@ -61,25 +60,9 @@ end
 local capturePaused = false
 
 local function save()
-    if personalEntries then return end
     if not state.save(entries, observedChangeCount, clearedChangeCount) then
         hs.printf("GlassLauncher could not save clipboard history")
     end
-end
-
-function history.setRecording(enabled)
-    if enabled == (personalEntries ~= nil) then return end
-    if enabled then
-        save()
-        personalEntries, entries = entries, {}
-    else
-        for index = #entries, 1, -1 do remove(index) end
-        entries, personalEntries = personalEntries, nil
-    end
-    -- Ignore the clipboard already present at either side of the switch.
-    observedChangeCount = hs.pasteboard.changeCount()
-    clearedChangeCount = nil
-    if not enabled then save() end
 end
 
 local function capture(text)
@@ -104,7 +87,7 @@ local function capture(text)
         if not image then return end
         local size = image:size()
         if size.w * size.h > 16000000 then return end
-        local path = personalEntries and os.tmpname() or state.imagePath()
+        local path = state.imagePath()
         if not path then return end
         if not image:saveToFile(path, true, "PNG") then os.remove(path); return end
         local bytes = hs.fs.attributes(path, "size")
@@ -199,7 +182,6 @@ function history.pauseCapture()
     end
 end
 
-if hs.settings.get("glassLauncherPublicRecordingMode") == true then history.setRecording(true) end
 history.watcher = hs.pasteboard.watcher.new(function()
     capture(hs.pasteboard.getContents())
 end)
@@ -207,11 +189,7 @@ capture(hs.pasteboard.getContents())
 
 local previousShutdown = hs.shutdownCallback
 hs.shutdownCallback = function()
-    if personalEntries then
-        for index = #entries, 1, -1 do remove(index) end
-    else
-        save()
-    end
+    save()
     if previousShutdown then previousShutdown() end
 end
 
